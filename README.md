@@ -1,23 +1,20 @@
 <div align="center">
 
-![clap-detektor banner](assets/clap-detektor-banner.svg)
-
 # clap-detektor
 
-Python CLI aplikace, která poslouchá mikrofon a po dvojitém tlesknutí spustí Visual Studio Code.
+**Dvakrát tleskni. Otevře se Visual Studio Code.**
 
 ![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=flat-square&logo=python&logoColor=white)
-![Audio](https://img.shields.io/badge/audio-sounddevice-111827?style=flat-square)
+![sounddevice](https://img.shields.io/badge/audio-sounddevice-111827?style=flat-square)
 ![NumPy](https://img.shields.io/badge/signal-NumPy-013243?style=flat-square&logo=numpy&logoColor=white)
 ![macOS](https://img.shields.io/badge/macOS-open--a-000000?style=flat-square&logo=apple&logoColor=white)
 
 </div>
 
-## Demo
+## Ukázka
 
-<pre>
+```bash
 $ python clap_launcher.py
-
 Listening for clap...
 Debug: waiting for 2 clap(s). Detected sounds will be printed here.
 Noise calibrated: rms=0.0042
@@ -30,15 +27,15 @@ Clap accepted: 2/2
 
 Clap detected!
 Starting VS Code...
-</pre>
+```
 
-## Funkce
+## Co umí
 
-- detekce dvojitého tlesknutí
-- debug výpis zachycených zvuků
-- základní filtrování okolního šumu
-- spuštění VS Code nebo jiné aplikace přes `--app`
-- výběr mikrofonu přes `--device`
+- poslouchá mikrofon
+- detekuje dvojité tlesknutí
+- vypisuje debug informace o zachycených zvucích
+- po detekci spustí Visual Studio Code
+- umí spustit i jinou aplikaci přes `--app`
 
 ## Instalace
 
@@ -48,7 +45,7 @@ source .venv/bin/activate
 python -m pip install -r requirements.txt
 ```
 
-Na macOS povol mikrofon pro Terminal, iTerm nebo VS Code:
+Na macOS povol mikrofon pro aplikaci, ze které program spouštíš:
 
 `System Settings -> Privacy & Security -> Microphone`
 
@@ -58,32 +55,28 @@ Na macOS povol mikrofon pro Terminal, iTerm nebo VS Code:
 python clap_launcher.py
 ```
 
-Výchozí režim čeká na 2 tlesknutí a potom spustí Visual Studio Code.
-
 ## Příkazy
 
 | Akce | Příkaz |
 | --- | --- |
-| Spustit výchozí režim | `python clap_launcher.py` |
-| Spustit po jednom tlesknutí | `python clap_launcher.py --single-clap` |
-| Spustit jinou aplikaci | `python clap_launcher.py --app "Safari"` |
-| Vypsat mikrofony | `python clap_launcher.py --list-devices` |
-| Použít konkrétní mikrofon | `python clap_launcher.py --device 1` |
+| Výchozí spuštění | `python clap_launcher.py` |
+| Jedno tlesknutí | `python clap_launcher.py --single-clap` |
+| Jiná aplikace | `python clap_launcher.py --app "Safari"` |
+| Seznam mikrofonů | `python clap_launcher.py --list-devices` |
+| Výběr mikrofonu | `python clap_launcher.py --device 1` |
 
 ## Soubory
 
-<pre>
-.
-├── assets/
-├── clap_launcher.py
-├── requirements.txt
-└── README.md
-</pre>
+```text
+clap_launcher.py   # aplikace
+requirements.txt   # závislosti
+README.md          # návod
+```
 
 ## Když něco nejde
 
-| Problém | Řešení |
+| Problém | Co zkusit |
 | --- | --- |
-| Program neslyší mikrofon | Zkontroluj oprávnění mikrofonu v macOS. |
-| Tlesknutí se nezachytí | Tleskni blíž k mikrofonu nebo zkus jiný vstup přes `--device`. |
+| Program neslyší mikrofon | Zkontroluj povolení mikrofonu v macOS. |
+| Tlesknutí se nezachytí | Tleskni blíž k mikrofonu. |
 | Nevíš, který mikrofon použít | Spusť `python clap_launcher.py --list-devices`. |
