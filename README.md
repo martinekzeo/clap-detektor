@@ -1,10 +1,6 @@
 <div align="center">
 
-<pre>
-      CLAP DETEKTOR
-  ───────────────────
-  mic  →  clap clap  →  VS Code
-</pre>
+![clap-detektor banner](assets/clap-detektor-banner.svg)
 
 # clap-detektor
 
@@ -78,6 +74,7 @@ Výchozí režim čeká na 2 tlesknutí a potom spustí Visual Studio Code.
 
 <pre>
 .
+├── assets/
 ├── clap_launcher.py
 ├── requirements.txt
 └── README.md
