@@ -1,16 +1,5 @@
 <div align="center">
 
-```text
-   ________  __          ___      ____ 
-  / ____/ / / /   ____  /   |    / __ \
- / /   / /_/ /   / __ \/ /| |   / /_/ /
-/ /___/ __  /   / /_/ / ___ |  / ____/
-\____/_/ /_/   / .___/_/  |_| /_/
-               /_/
-
-      mic  ->  clap clap  ->  VS Code
-```
-
 # clap-detektor
 
 **Dvakrát tleskni. Otevře se Visual Studio Code.**
