@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import platform
 import queue
+import shutil
 import subprocess
 import sys
 import time
@@ -25,6 +27,14 @@ DEBUG_EVENT = "debug"
 
 @dataclass(frozen=True)
 class Settings:
+    """Runtime configuration for microphone input and clap detection.
+
+    The values are intentionally conservative. A clap is not accepted only
+    because it is loud; it must also be short, sharp, and bright enough in the
+    high-frequency range. Different rooms and microphones may need tuning, so
+    the most important thresholds are exposed as CLI arguments.
+    """
+
     app: str = DEFAULT_APP
     device: int | str | None = None
     claps_required: int = 2
@@ -33,6 +43,8 @@ class Settings:
     calibration_seconds: float = 1.0
     clap_window_seconds: float = 0.75
     min_gap_seconds: float = 0.16
+
+    # Detection thresholds. These are normalized sounddevice float samples.
     peak_floor: float = 0.20
     threshold_multiplier: float = 7.0
     min_rms: float = 0.010
@@ -42,6 +54,15 @@ class Settings:
 
 
 class ClapDetector:
+    """Detect clap-like sounds from short microphone blocks.
+
+    The sounddevice callback calls process_audio() for each block. The callback
+    avoids slow work such as launching applications or printing directly; it
+    only calculates small signal features and posts messages to a Queue. The
+    main thread reads that Queue and decides what to print or when to start the
+    target app.
+    """
+
     def __init__(self, settings: Settings, events: "queue.Queue[str]") -> None:
         self.settings = settings
         self.events = events
@@ -51,6 +72,8 @@ class ClapDetector:
         self.claps: list[float] = []
 
     def calibrate_noise(self) -> None:
+        """Measure the room noise floor before active clap detection starts."""
+
         sample_count = int(self.settings.sample_rate * self.settings.calibration_seconds)
         if sample_count <= 0:
             return
@@ -67,7 +90,9 @@ class ClapDetector:
         self.noise_floor = max(rms(samples), 0.001)
         self.debug(f"Noise calibrated: rms={self.noise_floor:.4f}")
 
-    def process_audio(self, indata, frames, time_info, status) -> None:
+    def process_audio(self, indata: np.ndarray, frames: int, time_info, status) -> None:
+        """sounddevice callback for one block of microphone audio."""
+
         if status:
             self.debug(f"Audio warning: {status}")
 
@@ -104,6 +129,15 @@ class ClapDetector:
             self.events.put(CLAP_EVENT)
 
     def analyze_sound(self, samples: np.ndarray) -> tuple[bool, str]:
+        """Return whether the samples look like a clap and a debug message.
+
+        The detector combines:
+        - peak: the loudest instantaneous sample,
+        - RMS: average energy of the block,
+        - crest factor: peak divided by RMS, useful for sharp transients,
+        - high-frequency ratio: FFT energy above 2 kHz.
+        """
+
         peak = float(np.max(np.abs(samples)))
         level = rms(samples)
         threshold = max(
@@ -131,14 +165,25 @@ class ClapDetector:
         return True, f"{prefix}, high={high_ratio:.2f} -> clap"
 
     def debug(self, message: str) -> None:
+        """Send a debug message to the main thread."""
+
         self.events.put(f"{DEBUG_EVENT}:{message}")
 
 
 def rms(samples: np.ndarray) -> float:
+    """Return root mean square energy for a block of audio samples."""
+
     return float(np.sqrt(np.mean(np.square(samples))))
 
 
 def high_frequency_ratio(samples: np.ndarray, sample_rate: int) -> float:
+    """Estimate how much energy is in high frequencies using FFT.
+
+    Tlesknutí má typicky krátký, jasný charakter. Proto mívá víc energie ve
+    vyšších frekvencích než běžná řeč nebo hlubší hluk. Funkce vrací podíl
+    energie nad 2 kHz vůči celkové energii bloku.
+    """
+
     centered = samples - float(np.mean(samples))
     spectrum = np.fft.rfft(centered * np.hanning(len(centered)))
     power = np.abs(spectrum) ** 2
@@ -152,6 +197,8 @@ def high_frequency_ratio(samples: np.ndarray, sample_rate: int) -> float:
 
 
 def parse_device(value: str | None) -> int | str | None:
+    """Convert a device argument to an int index when possible."""
+
     if value is None:
         return None
     try:
@@ -161,10 +208,32 @@ def parse_device(value: str | None) -> int | str | None:
 
 
 def open_app(app_name: str) -> None:
-    subprocess.Popen(["open", "-a", app_name])
+    """Open the target app on the current platform.
+
+    macOS is the primary target because it supports `open -a "App Name"`.
+    On Windows/Linux the default VS Code case tries the `code` command first.
+    Custom app names outside macOS depend on the app being available on PATH.
+    """
+
+    system = platform.system()
+    if system == "Darwin":
+        subprocess.Popen(["open", "-a", app_name])
+        return
+
+    if app_name == DEFAULT_APP and shutil.which("code"):
+        subprocess.Popen(["code"])
+        return
+
+    if system == "Windows":
+        subprocess.Popen(["cmd", "/c", "start", "", app_name])
+        return
+
+    subprocess.Popen([app_name])
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse CLI arguments."""
+
     parser = argparse.ArgumentParser(
         description="Nasloucha mikrofonu a po tlesknuti spusti aplikaci."
     )
@@ -193,10 +262,30 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Vypise dostupna audio zarizeni.",
     )
+    parser.add_argument(
+        "--peak-floor",
+        type=float,
+        default=Settings.peak_floor,
+        help="Minimalni absolutni hlasitost spicky pro clap.",
+    )
+    parser.add_argument(
+        "--threshold-multiplier",
+        type=float,
+        default=Settings.threshold_multiplier,
+        help="Nasobek zmereneho sumu pouzity pro prah detekce.",
+    )
+    parser.add_argument(
+        "--min-high-frequency-ratio",
+        type=float,
+        default=Settings.min_high_frequency_ratio,
+        help="Minimalni podil vysoke frekvencni energie pro clap.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
+    """Run the CLI app until the required clap sequence is detected."""
+
     args = parse_args()
 
     if args.list_devices:
@@ -208,6 +297,9 @@ def main() -> int:
         app=args.app,
         device=parse_device(args.device),
         claps_required=claps_required,
+        peak_floor=args.peak_floor,
+        threshold_multiplier=args.threshold_multiplier,
+        min_high_frequency_ratio=args.min_high_frequency_ratio,
     )
     events: "queue.Queue[str]" = queue.Queue()
     detector = ClapDetector(settings, events)

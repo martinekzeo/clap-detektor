@@ -37,6 +37,17 @@ Starting VS Code...
 - po detekci spustí Visual Studio Code
 - umí spustit i jinou aplikaci přes `--app`
 
+## Princip
+
+Detekce není založená jen na hlasitosti. Program u každého krátkého bloku zvuku počítá:
+
+- `RMS` - průměrnou energii zvuku
+- `peak` - nejvyšší okamžitou špičku
+- `crest factor` - poměr špičky vůči RMS, pomáhá najít ostré zvuky
+- podíl vysokých frekvencí pomocí `FFT`, protože tlesknutí bývá krátké a jasné
+
+Na začátku se krátce změří okolní šum. Audio callback pak posílá výsledky přes `queue.Queue` do hlavní smyčky, aby v callbacku neběžely pomalé operace jako vypisování nebo spouštění aplikace.
+
 ## Instalace
 
 ```bash
@@ -64,11 +75,27 @@ python clap_launcher.py
 | Jiná aplikace | `python clap_launcher.py --app "Safari"` |
 | Seznam mikrofonů | `python clap_launcher.py --list-devices` |
 | Výběr mikrofonu | `python clap_launcher.py --device 1` |
+| Citlivější peak threshold | `python clap_launcher.py --peak-floor 0.15` |
+| Přísnější filtrování šumu | `python clap_launcher.py --threshold-multiplier 9` |
+
+## Testy
+
+```bash
+python -m unittest
+```
+
+## Omezení
+
+- Primárně je cílený na macOS, kde se aplikace spouští přes `open -a`.
+- Ostré zvuky jako bouchnutí nebo cvaknutí se mohou podobat tlesknutí.
+- Jiný mikrofon nebo hlučná místnost může vyžadovat úpravu thresholdů.
+- Mikrofony s automatickým potlačením šumu mohou změnit charakter tlesknutí.
 
 ## Soubory
 
 ```text
 clap_launcher.py   # aplikace
+test_clap_launcher.py
 requirements.txt   # závislosti
 README.md          # návod
 ```
